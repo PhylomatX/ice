@@ -2,12 +2,14 @@ import math
 from typing import Any
 from typing import Optional
 
+import numpy as np
 from structlog.stdlib import get_logger
 
 from ice.agents.base import Agent
 from ice.agents.base import Stop
 from ice.apis.openai import openai_chatcomplete
 from ice.apis.openai import openai_complete
+from ice.apis.openai import openai_embedding
 from ice.environment import env
 from ice.utils import longest_common_prefix
 
@@ -223,6 +225,54 @@ class OpenAIChatCompletionAgent(Agent):
     def _extract_completion(self, response: dict) -> str:
         """Extract the answer text from the completion response."""
         return response["choices"][0]["message"]["content"].strip()
+
+    def _print_markdown(self, obj: Any):
+        """Print the text with markdown formatting."""
+        env().print(obj, format_markdown=True)
+
+
+class OpenAIEmbeddingAgent(Agent):
+    """An agent that uses the OpenAI API to generate predictions"""
+
+    def __init__(
+        self,
+        model: str = "text-embedding-ada-002",
+    ):
+        self.model = model
+
+    async def relevance(
+        self,
+        *,
+        context: str,
+        question: str,
+        verbose: bool = False,
+        default: Optional[float] = None,
+    ) -> float:
+        """Generate a relevance score (cosine similarity) from a context and a question."""
+        if verbose:
+            self._print_markdown(context)
+            self._print_markdown(question)
+        context_embedding_response = await openai_embedding(context, model=self.model)
+        question_embedding_response = await openai_embedding(question, model=self.model)
+
+        context_embedding = self._extract_embedding(context_embedding_response)
+        question_embedding = self._extract_embedding(question_embedding_response)
+
+        # calculate cosine similarity
+        dot_product = np.dot(context_embedding, question_embedding)
+        norm_product = np.linalg.norm(context_embedding) * np.linalg.norm(
+            question_embedding
+        )
+
+        relevance = float(dot_product / norm_product)
+
+        if verbose:
+            self._print_markdown(relevance)
+        return relevance
+
+    def _extract_embedding(self, response: dict) -> str:
+        """Extract the embedding from the response."""
+        return response["data"][0]["embedding"]
 
     def _print_markdown(self, obj: Any):
         """Print the text with markdown formatting."""
