@@ -183,9 +183,24 @@ class OpenAIChatCompletionAgent(Agent):
         default: Optional[str] = None,
         verbose: bool = False,
     ) -> tuple[dict[str, float], Optional[str]]:
-        raise NotImplementedError(
-            "OpenAI ChatCompletion has no option to score a classification."
-        )
+        """This uses completion, parses the answer for the choices and returns the found choice with probability 1.0"""
+        if verbose:
+            self._print_markdown(prompt)
+
+        completion = await self.complete(prompt=prompt)
+
+        if verbose:
+            self._print_markdown(completion)
+
+        for choice in choices:
+            if completion == choice.strip():
+                probs = {
+                    choice: 1.0 if choice.strip() == completion else 0.0
+                    for choice in choices
+                }
+                return probs, None
+
+        return {}, None
 
     async def relevance(
         self,
