@@ -1,6 +1,7 @@
 import math
 from typing import Any
 from typing import Optional
+from typing import Union
 
 import numpy as np
 from structlog.stdlib import get_logger
@@ -247,7 +248,7 @@ class OpenAIChatCompletionAgent(Agent):
 
 
 class OpenAIEmbeddingAgent(Agent):
-    """An agent that uses the OpenAI API to generate predictions"""
+    """An agent that uses the OpenAI API to generate a relevance score by cosine similarity between two text embeddings."""
 
     def __init__(
         self,
@@ -273,21 +274,21 @@ class OpenAIEmbeddingAgent(Agent):
         context_embedding = self._extract_embedding(context_embedding_response)
         question_embedding = self._extract_embedding(question_embedding_response)
 
-        # calculate cosine similarity
-        dot_product = np.dot(context_embedding, question_embedding)
-        norm_product = np.linalg.norm(context_embedding) * np.linalg.norm(
-            question_embedding
-        )
-
-        relevance = float(dot_product / norm_product)
+        relevance = self._cosine_similarity(context_embedding, question_embedding)
 
         if verbose:
             self._print_markdown(relevance)
         return relevance
 
-    def _extract_embedding(self, response: dict) -> str:
+    def _extract_embedding(self, response: dict) -> list:
         """Extract the embedding from the response."""
         return response["data"][0]["embedding"]
+
+    def _cosine_similarity(
+        self, a: Union[list, np.ndarray], b: Union[list, np.ndarray]
+    ) -> float:
+        """Compute the cosine similarity between two vectors."""
+        return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
 
     def _print_markdown(self, obj: Any):
         """Print the text with markdown formatting."""
